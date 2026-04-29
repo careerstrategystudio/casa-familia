@@ -1,13 +1,172 @@
--center text-xs text-slate-400 px-4">
-  <p>🌐 Puntos en <strong>Google Sheets</strong> · 💸 Gastos en <strong>Splitwise</strong> · 💾 Resto en <strong>localStorage</strong></p>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏠 Casa Família</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --aidan:#34d399; --aisling:#fbbf24; --licel:#f472b6; --javier:#60a5fa; --bg:#f0f4f8; }
+  body { font-family:'Nunito',sans-serif; background:var(--bg); }
+  h1,h2,.brand { font-family:'Baloo 2',cursive; }
+  .kpi-card { border-left:5px solid; }
+  .kpi-ok   { border-color:#10b981; }
+  .kpi-warn { border-color:#f59e0b; }
+  .kpi-pend { border-color:#f97316; }
+  .avatar { width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff; }
+  .progress-bar { height:8px;border-radius:4px;background:#e2e8f0;overflow:hidden; }
+  .progress-fill { height:100%;border-radius:4px;transition:width .4s ease; }
+  .spin { animation:spin 1s linear infinite;display:inline-block; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  select { background-image:none !important; }
+  @media(max-width:640px){
+    .grid-kpi { grid-template-columns:1fr 1fr !important; }
+    .grid-2   { grid-template-columns:1fr !important; }
+  }
+</style>
+</head>
+<body class="min-h-screen pb-16">
+
+<header class="bg-white shadow-sm sticky top-0 z-50">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span class="text-3xl">🏠</span>
+      <div>
+        <h1 class="brand text-xl font-extrabold text-slate-800 leading-none">Casa Família</h1>
+        <p class="text-xs text-slate-400">Licel · Javier · Aidan · Aisling</p>
+      </div>
+    </div>
+    <div id="syncStatus" class="text-xs text-slate-400 flex items-center gap-1">
+      <span class="spin">⏳</span> Cargando...
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 pt-6 space-y-6">
+
+  <!-- KPIs -->
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-4 grid-kpi">
+    <div class="kpi-card kpi-ok bg-white rounded-xl shadow p-4">
+      <p class="text-xs text-slate-500 font-semibold uppercase tracking-wide">Completadas hoy</p>
+      <p id="kpiDone" class="text-3xl font-extrabold text-emerald-600 mt-1">0</p>
+      <p class="text-xs text-slate-400">tareas ✅</p>
+    </div>
+    <div class="kpi-card kpi-warn bg-white rounded-xl shadow p-4">
+      <p class="text-xs text-slate-500 font-semibold uppercase tracking-wide">Pendientes niños</p>
+      <p id="kpiPending" class="text-3xl font-extrabold text-amber-500 mt-1">34</p>
+      <p class="text-xs text-slate-400">tareas ⚠️</p>
+    </div>
+    <div class="kpi-card kpi-pend bg-white rounded-xl shadow p-4">
+      <p class="text-xs text-slate-500 font-semibold uppercase tracking-wide">Pendientes hogar</p>
+      <p id="kpiHousePending" class="text-3xl font-extrabold text-orange-500 mt-1">0</p>
+      <p class="text-xs text-slate-400">por hacer 🔧</p>
+    </div>
+  </div>
+
+  <!-- PUNTOS + GRÁFICA -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 grid-2">
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="text-lg font-extrabold text-slate-700 mb-4">🏆 Puntos actuales</h2>
+      <div id="pointsBoard" class="space-y-3">
+        <div class="text-sm text-slate-400 flex items-center gap-2"><span class="spin">⏳</span> Cargando...</div>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="text-lg font-extrabold text-slate-700 mb-3">📊 Progreso semanal</h2>
+      <canvas id="weekChart" height="180"></canvas>
+    </div>
+  </div>
+
+  <!-- PENDIENTES DEL HOGAR -->
+  <div class="bg-white rounded-xl shadow p-5">
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+      <h2 class="text-lg font-extrabold text-slate-700">🔧 Pendientes del hogar</h2>
+      <span class="text-xs text-slate-400">Al completar ✓ desaparecen</span>
+    </div>
+    <div class="flex gap-2 mb-4 flex-wrap">
+      <input id="newPending" type="text" placeholder="Nueva tarea pendiente..."
+        class="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300">
+      <select id="pendingWho" class="border border-slate-200 rounded-lg px-2 py-2 text-sm focus:outline-none">
+        <option value="Licel">Licel</option>
+        <option value="Javier">Javier</option>
+        <option value="Aidan">Aidan</option>
+        <option value="Aisling">Aisling</option>
+        <option value="Todos">Todos</option>
+      </select>
+      <button onclick="addPendingTask()" class="bg-orange-500 hover:bg-orange-600 text-white font-bold px-4 py-2 rounded-lg text-sm">+</button>
+    </div>
+    <ul id="pendingList" class="space-y-2"></ul>
+  </div>
+
+  <!-- TAREAS DIARIAS NIÑOS -->
+  <div class="bg-white rounded-xl shadow p-5">
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+      <h2 class="text-lg font-extrabold text-slate-700">⭐ Tareas para sumar puntos (hoy)</h2>
+      <button onclick="resetDailyTasks()" class="text-xs text-red-400 hover:text-red-600 underline">Reiniciar día</button>
+    </div>
+    <p class="text-xs text-slate-400 mb-3">Marca quién la hace y pulsa "Sumar". Se puede repetir varias veces al día.</p>
+    <div id="taskList" class="space-y-2"></div>
+  </div>
+
+  <!-- ESTADÍSTICAS -->
+  <div class="bg-white rounded-xl shadow p-5">
+    <h2 class="text-lg font-extrabold text-slate-700 mb-4">👥 Estadísticas de hoy</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left">
+        <thead>
+          <tr class="text-xs text-slate-400 uppercase border-b">
+            <th class="pb-2 pr-4">Niño</th>
+            <th class="pb-2 pr-4 text-center">Disponibles</th>
+            <th class="pb-2 pr-4 text-center">Hechas hoy</th>
+            <th class="pb-2 pr-4 text-center">Puntos totales</th>
+          </tr>
+        </thead>
+        <tbody id="statsTable" class="divide-y divide-slate-100"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- COMPRA + TAREAS HOGAR -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 grid-2">
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="text-lg font-extrabold text-slate-700 mb-4">🛒 Lista de la compra</h2>
+      <div class="flex gap-2 mb-2">
+        <input id="newItem" type="text" placeholder="Añadir producto..."
+          class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300">
+        <button onclick="addShoppingItem()" class="bg-violet-500 hover:bg-violet-600 text-white font-bold px-4 py-2 rounded-lg text-sm">+</button>
+      </div>
+      <p class="text-xs text-slate-400 mb-2">Marcados: <span id="kpiSpent" class="font-bold text-violet-600">0</span></p>
+      <div class="progress-bar mb-3"><div class="progress-fill bg-violet-400" id="spendBar" style="width:0%"></div></div>
+      <ul id="shoppingList" class="space-y-2 max-h-64 overflow-y-auto"></ul>
+    </div>
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="text-lg font-extrabold text-slate-700 mb-4">🧹 Tareas del hogar</h2>
+      <div class="flex gap-2 mb-3 flex-wrap">
+        <input id="newHouseTask" type="text" placeholder="Nueva tarea..."
+          class="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+        <select id="newHouseAssignee" class="border border-slate-200 rounded-lg px-2 py-2 text-sm focus:outline-none">
+          <option value="Licel">Licel</option>
+          <option value="Javier">Javier</option>
+          <option value="Aidan">Aidan</option>
+          <option value="Aisling">Aisling</option>
+        </select>
+        <button onclick="addHouseTask()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold px-3 py-2 rounded-lg text-sm">+</button>
+      </div>
+      <ul id="houseTaskList" class="space-y-2 max-h-60 overflow-y-auto"></ul>
+      <button onclick="clearHouseTasks()" class="mt-3 text-xs text-red-400 hover:text-red-600 underline">Borrar todas</button>
+    </div>
+  </div>
+
+</main>
+
+<footer class="mt-10 text-center text-xs text-slate-400 px-4">
+  <p>🌐 Puntos desde <strong>Google Sheets</strong> · 💾 Resto en <strong>localStorage</strong></p>
 </footer>
 
 <script>
 const SHEET_ID = '1-iQciHnDblMau7hPY3L4Qfl_KmjelnvZqPxKl2HlitE';
-const SHEET_NAME = 'Puntos';
-const SPLITWISE_API_KEY = 'xYYB9LedvoThmgwI7WcTOhLAsATbmeHTUmrAGy6U';
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxYbMyeHJHDGN9Nh0UMjbdLR7sxgfLWM43zVcGCvu-lVhkTkIdJYHBO4Npke4nf53Vx2w/exec';
-
 const DAILY_TASKS = [
   {id:'cama',         label:'Hacer su cama',                         pts:1},
   {id:'persianas',    label:'Abrir persianas',                       pts:1},
@@ -48,14 +207,12 @@ const DAILY_TASKS = [
 const MEMBERS = ['Aidan','Aisling'];
 const MEMBER_COLORS = {Licel:'#f472b6',Javier:'#60a5fa',Aidan:'#34d399',Aisling:'#fbbf24',Todos:'#94a3b8'};
 let points = {Aidan:0, Aisling:0};
-let swGroupId = null;
 
-// --- Utils ---
 function todayKey() { const d=new Date(); return `tasks_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`; }
 function loadDoneToday() { return JSON.parse(localStorage.getItem(todayKey())||'{}'); }
 function saveDoneToday(o) { localStorage.setItem(todayKey(), JSON.stringify(o)); }
 
-// --- Google Sheets CSV (sin CORS) ---
+// Google Sheets CSV
 async function fetchPoints() {
   try {
     const csvUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
@@ -81,21 +238,12 @@ async function fetchPoints() {
   renderStatsTable();
 }
 
-async function addPoints(member, pts) {
+function addPoints(member, pts) {
   points[member] = (points[member]||0) + pts;
   renderPointsBoard();
   renderStatsTable();
-  // Apps Script con no-cors (para escribir)
-  try {
-    await fetch(APPS_SCRIPT_URL, {
-      method:'POST', mode:'no-cors',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'add', member, points:pts})
-    });
-  } catch(e) {}
 }
 
-// --- Puntos board ---
 function renderPointsBoard() {
   const max = Math.max(...Object.values(points), 1);
   document.getElementById('pointsBoard').innerHTML = MEMBERS.map(m => {
@@ -115,7 +263,6 @@ function renderPointsBoard() {
   }).join('');
 }
 
-// --- Tareas diarias niños ---
 function renderTaskList() {
   const done = loadDoneToday();
   let completed = 0;
@@ -137,15 +284,12 @@ function renderTaskList() {
       <div class="p-3 rounded-xl border ${total>0?'bg-emerald-50 border-emerald-200':'bg-white border-slate-100'}" id="row_${t.id}">
         <div class="flex items-center gap-2 mb-2 flex-wrap">
           <span class="text-sm flex-1 font-semibold ${total>0?'text-emerald-700':'text-slate-700'}">${t.label}</span>
-          <span class="text-xs font-bold px-2 py-0.5 rounded-full border border-slate-200 text-slate-500">+${t.pts}pt${t.pts>1?'s':''} c/u</span>
+          <span class="text-xs font-bold px-2 py-0.5 rounded-full border border-slate-200 text-slate-500">+${t.pts}pt${t.pts>1?'s':''}</span>
           ${total>0?`<span class="text-xs text-emerald-600 font-bold">${total} vez${total>1?'ces':''} ✓</span>`:''}
         </div>
         <div class="flex items-center gap-2 flex-wrap">
           ${checks}
-          <button onclick="completeTask('${t.id}',${t.pts})"
-            class="ml-auto bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition">
-            Sumar ✓
-          </button>
+          <button onclick="completeTask('${t.id}',${t.pts})" class="ml-auto bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition">Sumar ✓</button>
         </div>
       </div>`;
   }).join('');
@@ -178,7 +322,6 @@ function updateKpis(completed) {
   document.getElementById('kpiPending').textContent = DAILY_TASKS.length - completed;
 }
 
-// --- Estadísticas ---
 function renderStatsTable() {
   const done = loadDoneToday();
   document.getElementById('statsTable').innerHTML = MEMBERS.map(m => {
@@ -195,7 +338,7 @@ function renderStatsTable() {
   }).join('');
 }
 
-// --- Pendientes del hogar ---
+// Pendientes
 function loadPending() { return JSON.parse(localStorage.getItem('pendingTasks')||'[]'); }
 function savePending(a) { localStorage.setItem('pendingTasks', JSON.stringify(a)); }
 
@@ -231,94 +374,7 @@ function addPendingTask() {
 function completePending(i) { const a=loadPending(); a.splice(i,1); savePending(a); renderPending(); }
 function deletePending(i) { const a=loadPending(); a.splice(i,1); savePending(a); renderPending(); }
 
-// --- Splitwise (directo, sin proxy) ---
-async function fetchSplitwise() {
-  const el = document.getElementById('swList');
-  el.innerHTML = '<div class="text-sm text-slate-400 flex items-center gap-2"><span class="spin">⏳</span> Cargando gastos...</div>';
-  try {
-    const groupsRes = await fetch('https://secure.splitwise.com/api/v3.0/get_groups', {
-      headers: { 'Authorization': 'Bearer ' + SPLITWISE_API_KEY }
-    });
-    const groups = await groupsRes.json();
-    let groupId = null;
-    for (let g of groups.groups) {
-      if (g.name === 'Ayala Codeghini') { groupId = g.id; break; }
-    }
-    if (!groupId) throw new Error('Grupo no encontrado');
-    
-    const expRes = await fetch(`https://secure.splitwise.com/api/v3.0/get_expenses?group_id=${groupId}&limit=20`, {
-      headers: { 'Authorization': 'Bearer ' + SPLITWISE_API_KEY }
-    });
-    const expenses = await expRes.json();
-    swGroupId = groupId;
-    renderSplitwise(expenses.expenses || []);
-  } catch(e) {
-    el.innerHTML = `<div class="text-sm text-red-400 p-3 bg-red-50 rounded-xl">⚠️ ${e.message}</div>`;
-  }
-}
-
-function renderSplitwise(expenses) {
-  const el = document.getElementById('swList');
-  if (!expenses||!expenses.length) { el.innerHTML='<p class="text-slate-400 text-sm">Sin gastos recientes.</p>'; return; }
-  document.getElementById('kpiSW').textContent = '€'+parseFloat(expenses[0].cost).toFixed(2);
-  el.innerHTML = expenses.map(exp => {
-    const coste = parseFloat(exp.cost).toFixed(2);
-    const mitad = (parseFloat(exp.cost)/2).toFixed(2);
-    const fecha = (exp.date||'').substring(0,10);
-    return `
-      <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white transition">
-        <div class="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-500 font-extrabold text-sm flex-shrink-0">€</div>
-        <div class="flex-1 min-w-0">
-          <p class="font-bold text-slate-700 text-sm truncate">${exp.description}</p>
-          <p class="text-xs text-slate-400">${fecha}${exp.created_by?' · '+exp.created_by.first_name:''}</p>
-        </div>
-        <div class="text-right flex-shrink-0">
-          <p class="font-extrabold text-slate-700 text-sm">€${coste}</p>
-          <p class="text-xs text-slate-400">€${mitad}/persona</p>
-        </div>
-      </div>`;
-  }).join('');
-}
-
-async function addSplitwiseExpense() {
-  const desc = document.getElementById('swDesc').value.trim();
-  const cost = parseFloat(document.getElementById('swCost').value);
-  const msg = document.getElementById('swMsg');
-  const btn = document.getElementById('swBtn');
-  const showMsg = (txt, ok) => {
-    msg.textContent = txt;
-    msg.className = `text-xs mt-2 ${ok?'text-emerald-600':'text-red-500'}`;
-    msg.classList.remove('hidden');
-  };
-  if (!desc||!cost||cost<=0) { showMsg('⚠️ Escribe descripción e importe.',false); return; }
-  if (!swGroupId) { showMsg('⚠️ Pulsa "Actualizar" primero.',false); return; }
-  btn.textContent='⏳'; btn.disabled=true;
-  try {
-    await fetch('https://secure.splitwise.com/api/v3.0/create_expense', {
-      method:'POST',
-      headers: {
-        'Authorization': 'Bearer ' + SPLITWISE_API_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        cost: cost.toFixed(2),
-        description: desc,
-        date: new Date().toISOString(),
-        group_id: swGroupId,
-        split_equally: true
-      })
-    });
-    document.getElementById('swDesc').value='';
-    document.getElementById('swCost').value='';
-    showMsg('✅ Gasto añadido. Actualizando...', true);
-    setTimeout(fetchSplitwise, 2000);
-  } catch(e) {
-    showMsg('⚠️ Error: '+e.message, false);
-  }
-  btn.textContent='Añadir'; btn.disabled=false;
-}
-
-// --- Lista de la compra ---
+// Shopping
 function loadShopping() { return JSON.parse(localStorage.getItem('shopping')||'[]'); }
 function saveShopping(a) { localStorage.setItem('shopping', JSON.stringify(a)); }
 
@@ -342,7 +398,7 @@ function addShoppingItem() { const inp=document.getElementById('newItem'); const
 function toggleShop(i) { const a=loadShopping(); a[i].done=!a[i].done; saveShopping(a); renderShopping(); }
 function removeShop(i) { const a=loadShopping(); a.splice(i,1); saveShopping(a); renderShopping(); }
 
-// --- Tareas del hogar ---
+// House tasks
 const DEFAULT_HOUSE=[{text:'Sacar basura',done:false,who:'Javier'},{text:'Regar plantas',done:false,who:'Licel'},{text:'Pasar aspiradora',done:false,who:'Javier'},{text:'Doblar la colada',done:false,who:'Licel'}];
 function loadHouse() { return JSON.parse(localStorage.getItem('houseTasks')||JSON.stringify(DEFAULT_HOUSE)); }
 function saveHouse(a) { localStorage.setItem('houseTasks', JSON.stringify(a)); }
@@ -359,7 +415,7 @@ function deleteHouse(i) { const a=loadHouse(); a.splice(i,1); saveHouse(a); rend
 function editHouse(i) { const a=loadHouse(); const orig=a[i].text; document.getElementById('ht_txt_'+i).innerHTML=`<input id="edit_${i}" value="${orig}" class="border border-blue-300 rounded px-2 py-0.5 text-sm w-full focus:outline-none">`; const inp=document.getElementById('edit_'+i); inp.focus(); inp.addEventListener('blur',()=>{ a[i].text=inp.value.trim()||orig; saveHouse(a); renderHouse(); }); inp.addEventListener('keydown',e=>{ if(e.key==='Enter') inp.blur(); }); }
 function clearHouseTasks() { if(!confirm('¿Borrar todas?')) return; saveHouse([]); renderHouse(); }
 
-// --- Gráfica ---
+// Chart
 function initChart() {
   new Chart(document.getElementById('weekChart').getContext('2d'),{
     type:'bar',
@@ -381,17 +437,14 @@ function initChart() {
   });
 }
 
-// --- Listeners ---
 document.addEventListener('keydown', e => {
   if (e.key==='Enter') {
     if (document.activeElement.id==='newItem') addShoppingItem();
     if (document.activeElement.id==='newHouseTask') addHouseTask();
     if (document.activeElement.id==='newPending') addPendingTask();
-    if (document.activeElement.id==='swDesc'||document.activeElement.id==='swCost') addSplitwiseExpense();
   }
 });
 
-// --- Init ---
 document.addEventListener('DOMContentLoaded', ()=>{
   renderTaskList();
   renderShopping();
@@ -399,7 +452,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   renderPending();
   initChart();
   fetchPoints();
-  fetchSplitwise();
 });
 </script>
 </body>
