@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏠 Casa Família</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --aidan:#34d399; --aisling:#fbbf24; --licel:#f472b6; --javier:#60a5fa; --bg:#f0f4f8; }
+  body { font-family:'Nunito',sans-serif; background:var(--bg); }
+  h1,h2,.brand { font-family:'Baloo 2',cursive; }
+  .kpi-card { border-left:5px solid; }
+  .kpi-ok   { border-color:#10b981; }
+  .kpi-warn { border-color:#f59e0b; }
+  .kpi-pend { border-color:#f97316; }
+  .kpi-sw   { border-color:#e11d48; }
+  .avatar { width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff; }
+  .progress-bar { height:8px;border-radius:4px;background:#e2e8f0;overflow:hidden; }
+  .progress-fill { height:100%;border-radius:4px;transition:width .4s ease; }
+  .spin { animation:spin 1s linear infinite;display:inline-block; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  select { background-image:none !important; }
+  @media(max-width:640px){
+    .grid-kpi { grid-template-columns:1fr 1fr !important; }
+    .grid-2   { grid-template-columns:1fr !important; }
+  }
+</style>
+</head>
+<body class="min-h-screen pb-16">
+
+<header class="bg-white shadow-sm sticky top-0 z-50">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span class="text-3xl">🏠</span>
+      <div>
+        <h1 class="brand text-xl font-extrabold text-slate-800 leading-none">Casa Família</h1>
+        <p class="text-xs text-slate-400">Licel · Javier · Aidan · Aisling</p>
+      </div>
+    </div>
+    <div id="syncStatus" class="text-xs text-slate-400 flex items-center gap-1">
+      <span class="spin">⏳</span> Cargando...
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 pt-6 space-y-6">
+
+  <!-- KPIs -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 grid-kpi">
+    <div class="kpi-card kpi-ok bg-white rounded-xl shadow p-4">
+      <p class="text-xs text-slate-500 font-semibold uppercase tracking-wide">Completadas hoy</p>
+      <p id="kpiDone" class="text-3xl font-extrabold text-emerald-600 mt-1">0</p>
+      <p class="text-xs text-slate-400">tareas ✅</p>
+    </div>
+    <div class="kpi-card kpi-warn bg-white rounded-xl shadow p-4">
+      <p class="text-xs text-slate-500 font-semibold uppercase tracking-wide">Pendientes niños</p>
+      <p id="kpiPending" class="text-3xl font-extrabold text-amber-500 mt-1">34</p>
+      <p class="text-xs text-slate-400">tareas ⚠️</p>
+    </div>
+    <div class="kpi-card kpi-pend bg-white rounded-xl shadow p-4">
+      <p class="text-xs text-slate-500 font-semibold uppercase tracking-wide">Pendientes hogar</p>
+      <p id="kpiHousePending" class="text-3xl font-extrabold text-orange-500 mt-1">0</p>
+      <p class="text-xs text-slate-400">por hacer 🔧</p>
+    </div>
+    <div class="kpi-card kpi-sw bg-white rounded-xl shadow p-4">
+      <p class="text-xs text-slate-500 font-semibold uppercase tracking-wide">Último gasto</p>
+      <p id="kpiSW" class="text-2xl font-extrabold text-rose-600 mt-1">—</p>
+      <p class="text-xs text-slate-400">Splitwise 💸</p>
+    </div>
+  </div>
+
+  <!-- PUNTOS + GRÁFICA -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 grid-2">
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="text-lg font-extrabold text-slate-700 mb-4">🏆 Puntos actuales</h2>
+      <div id="pointsBoard" class="space-y-3">
+        <div class="text-sm text-slate-400 flex items-center gap-2"><span class="spin">⏳</span> Cargando...</div>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="text-lg font-extrabold text-slate-700 mb-3">📊 Progreso semanal</h2>
+      <canvas id="weekChart" height="180"></canvas>
+    </div>
+  </div>
+
+  <!-- PENDIENTES DEL HOGAR -->
+  <div class="bg-white rounded-xl shadow p-5">
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+      <h2 class="text-lg font-extrabold text-slate-700">🔧 Pendientes del hogar</h2>
+      <span class="text-xs text-slate-400">Al completar ✓ desaparecen</span>
+    </div>
+    <div class="flex gap-2 mb-4 flex-wrap">
+      <input id="newPending" type="text" placeholder="Nueva tarea pendiente..."
+        class="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300">
+      <select id="pendingWho" class="border border-slate-200 rounded-lg px-2 py-2 text-sm focus:outline-none">
+        <option value="Licel">Licel</option>
+        <option value="Javier">Javier</option>
+        <option value="Aidan">Aidan</option>
+        <option value="Aisling">Aisling</option>
+        <option value="Todos">Todos</option>
+      </select>
+      <button onclick="addPendingTask()" class="bg-orange-500 hover:bg-orange-600 text-white font-bold px-4 py-2 rounded-lg text-sm">+</button>
+    </div>
+    <ul id="pendingList" class="space-y-2"></ul>
+  </div>
+
+  <!-- TAREAS DIARIAS NIÑOS -->
+  <div class="bg-white rounded-xl shadow p-5">
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+      <h2 class="text-lg font-extrabold text-slate-700">⭐ Tareas para sumar puntos (hoy)</h2>
+      <button onclick="resetDailyTasks()" class="text-xs text-red-400 hover:text-red-600 underline">Reiniciar día</button>
+    </div>
+    <p class="text-xs text-slate-400 mb-3">Marca quién la hace y pulsa "Sumar". Se puede repetir varias veces al día.</p>
+    <div id="taskList" class="space-y-2"></div>
+  </div>
+
+  <!-- ESTADÍSTICAS -->
+  <div class="bg-white rounded-xl shadow p-5">
+    <h2 class="text-lg font-extrabold text-slate-700 mb-4">👥 Estadísticas de hoy</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left">
+        <thead>
+          <tr class="text-xs text-slate-400 uppercase border-b">
+            <th class="pb-2 pr-4">Niño</th>
+            <th class="pb-2 pr-4 text-center">Tareas disponibles</th>
+            <th class="pb-2 pr-4 text-center">Hechas hoy</th>
+            <th class="pb-2 pr-4 text-center">Puntos totales</th>
+          </tr>
+        </thead>
+        <tbody id="statsTable" class="divide-y divide-slate-100">
+          <tr><td colspan="4" class="py-4 text-center text-slate-400">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SPLITWISE -->
+  <div class="bg-white rounded-xl shadow p-5">
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+      <h2 class="text-lg font-extrabold text-slate-700">💸 Splitwise — Ayala Codeghini</h2>
+      <button onclick="fetchSplitwise()" class="text-xs text-rose-500 hover:text-rose-700 underline">🔄 Actualizar</button>
+    </div>
+    <!-- Formulario nuevo gasto -->
+    <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 mb-4">
+      <p class="text-xs font-bold text-rose-600 uppercase mb-3">Añadir gasto al grupo</p>
+      <div class="flex gap-2 flex-wrap">
+        <input id="swDesc" type="text" placeholder="Descripción (ej: Factura luz)"
+          class="flex-1 min-w-0 border border-rose-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300">
+        <input id="swCost" type="number" placeholder="€ Total" step="0.01" min="0"
+          class="w-28 border border-rose-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300">
+        <button onclick="addSplitwiseExpense()" id="swBtn"
+          class="bg-rose-500 hover:bg-rose-600 text-white font-bold px-4 py-2 rounded-lg text-sm">
+          Añadir
+        </button>
+      </div>
+      <p id="swMsg" class="text-xs mt-2 hidden"></p>
+    </div>
+    <!-- Lista gastos -->
+    <div id="swList" class="space-y-2">
+      <div class="text-sm text-slate-400 flex items-center gap-2"><span class="spin">⏳</span> Cargando gastos...</div>
+    </div>
+  </div>
+
+  <!-- COMPRA + TAREAS HOGAR -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 grid-2">
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="text-lg font-extrabold text-slate-700 mb-4">🛒 Lista de la compra</h2>
+      <div class="flex gap-2 mb-2">
+        <input id="newItem" type="text" placeholder="Añadir producto..."
+          class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300">
+        <button onclick="addShoppingItem()" class="bg-violet-500 hover:bg-violet-600 text-white font-bold px-4 py-2 rounded-lg text-sm">+</button>
+      </div>
+      <p class="text-xs text-slate-400 mb-2">Marcados: <span id="kpiSpent" class="font-bold text-violet-600">0</span></p>
+      <div class="progress-bar mb-3"><div class="progress-fill bg-violet-400" id="spendBar" style="width:0%"></div></div>
+      <ul id="shoppingList" class="space-y-2 max-h-64 overflow-y-auto"></ul>
+    </div>
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="text-lg font-extrabold text-slate-700 mb-4">🧹 Tareas del hogar</h2>
+      <div class="flex gap-2 mb-3 flex-wrap">
+        <input id="newHouseTask" type="text" placeholder="Nueva tarea..."
+          class="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+        <select id="newHouseAssignee" class="border border-slate-200 rounded-lg px-2 py-2 text-sm focus:outline-none">
+          <option value="Licel">Licel</option>
+          <option value="Javier">Javier</option>
+          <option value="Aidan">Aidan</option>
+          <option value="Aisling">Aisling</option>
+        </select>
+        <button onclick="addHouseTask()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold px-3 py-2 rounded-lg text-sm">+</button>
+      </div>
+      <ul id="houseTaskList" class="space-y-2 max-h-60 overflow-y-auto"></ul>
+      <button onclick="clearHouseTasks()" class="mt-3 text-xs text-red-400 hover:text-red-600 underline">Borrar todas</button>
+    </div>
+  </div>
+
+</main>
+
+<footer class="mt-10 text-center text-xs text-slate-400 px-4">
+  <p>🌐 Puntos en <strong>Google Sheets</strong> · 💸 Gastos en <strong>Splitwise</strong> · 💾 Resto en <strong>localStorage</strong></p>
+</footer>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxYbMyeHJHDGN9Nh0UMjbdLR7sxgfLWM43zVcGCvu-lVhkTkIdJYHBO4Npke4nf53Vx2w/exec';
+
+const DAILY_TASKS = [
+  {id:'cama',         label:'Hacer su cama',                         pts:1},
+  {id:'persianas',    label:'Abrir persianas',                       pts:1},
+  {id:'panal',        label:'Pañal en la papelera / Omeprazol',      pts:1},
+  {id:'cepillar',     label:'Cepillarse',                            pts:1},
+  {id:'desodorante',  label:'Ponerse desodorante',                   pts:1},
+  {id:'comida',       label:'Ayudar con desayuno / almuerzo / cena', pts:3},
+  {id:'mesa',         label:'Poner la mesa',                         pts:1},
+  {id:'plato',        label:'Recoger su plato',                      pts:1},
+  {id:'lavavajillas', label:'Meter platos en lavavajillas',          pts:1},
+  {id:'solar',        label:'Ponerse protector solar',               pts:1},
+  {id:'limpiarMesa',  label:'Limpiar mesas de la cocina',            pts:1},
+  {id:'basura',       label:'Sacar la basura',                       pts:2},
+  {id:'bolsas',       label:'Poner las bolsas de la basura',         pts:2},
+  {id:'zapatos',      label:'Guardar zapatos',                       pts:1},
+  {id:'chaqueta',     label:'Guindar chaqueta',                      pts:1},
+  {id:'lonchera',     label:'Sacar lonchera y termo del bolso',      pts:1},
+  {id:'lavarLonchera',label:'Lavar lonchera y termo',                pts:2},
+  {id:'manos',        label:'Lavarse manos antes de comer',          pts:1},
+  {id:'tarea',        label:'Hacer la Tarea',                        pts:1},
+  {id:'ropaSucia',    label:'Poner ropa sucia en la cesta',          pts:1},
+  {id:'juguetes',     label:'Recoger sus juguetes',                  pts:2},
+  {id:'perritos',     label:'Ayudar a alimentar a los Perritos',     pts:3},
+  {id:'agua',         label:'Agua a los perritos',                   pts:1},
+  {id:'habitacion',   label:'Organizar su habitación',               pts:3},
+  {id:'banarse',      label:'Bañarse',                               pts:1},
+  {id:'camaNueva',    label:'Hacer cama nueva',                      pts:3},
+  {id:'doblarRopa',   label:'Ayudar a doblar la ropa',               pts:5},
+  {id:'guardarRopa',  label:'Guardar la ropa',                       pts:2},
+  {id:'sofa',         label:'Limpiar el sofá de la sala',            pts:3},
+  {id:'matas',        label:'Regar las matas',                       pts:2},
+  {id:'vidrios',      label:'Limpiar vidrios',                       pts:5},
+  {id:'lavadora',     label:'Hacer lavadora',                        pts:3},
+  {id:'guindarRopa',  label:'Guindar la ropa',                       pts:5},
+  {id:'familia',      label:'Ayudar a Familia',                      pts:1},
+];
+
+const MEMBERS       = ['Aidan','Aisling'];
+const MEMBER_COLORS = {Licel:'#f472b6',Javier:'#60a5fa',Aidan:'#34d399',Aisling:'#fbbf24',Todos:'#94a3b8'};
+let points   = {Aidan:0, Aisling:0};
+let swGroupId = null;
+
+// --- Utils ---
+function todayKey()        { const d=new Date(); return `tasks_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`; }
+function loadDoneToday()   { return JSON.parse(localStorage.getItem(todayKey())||'{}'); }
+function saveDoneToday(o)  { localStorage.setItem(todayKey(), JSON.stringify(o)); }
+
+// --- Fetch helper ---
+async function apiFetch(url) {
+  const res = await fetch(url, { redirect: 'follow' });
+  return res.json();
+}
+
+// --- Puntos Sheets ---
+async function fetchPoints() {
+  try {
+    const data = await apiFetch(APPS_SCRIPT_URL + '?action=get');
+    points = {Aidan:data.Aidan||0, Aisling:data.Aisling||0};
+    document.getElementById('syncStatus').innerHTML = '✅ Sincronizado';
+  } catch(e) {
+    console.warn('Sin conexión Sheets:', e);
+    document.getElementById('syncStatus').innerHTML = '⚠️ Sin conexión Sheets';
+  }
+  renderPointsBoard(); renderStatsTable();
+}
+
+async function addPoints(member, pts) {
+  points[member] = (points[member]||0) + pts;
+  renderPointsBoard(); renderStatsTable();
+  try {
+    await fetch(APPS_SCRIPT_URL,{
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'add', member, points:pts})
+    });
+  } catch(e) {}
+}
+
+// --- Puntos board ---
+function renderPointsBoard() {
+  const max = Math.max(...Object.values(points), 1);
+  document.getElementById('pointsBoard').innerHTML = MEMBERS.map(m => {
+    const color = MEMBER_COLORS[m];
+    const pts   = points[m]||0;
+    const pct   = Math.round((pts/max)*100);
+    return `
+      <div class="flex items-center gap-3">
+        <div class="avatar" style="background:${color}">${m[0]}</div>
+        <div class="flex-1">
+          <div class="flex justify-between text-sm font-bold text-slate-700 mb-1">
+            <span>${m}</span><span style="color:${color}">${pts} pts</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// --- Tareas diarias niños ---
+function renderTaskList() {
+  const done = loadDoneToday();
+  let completed = 0;
+  document.getElementById('taskList').innerHTML = DAILY_TASKS.map(t => {
+    const td    = done[t.id]||{};
+    const total = Object.values(td).reduce((a,b)=>a+b,0);
+    if (total>0) completed++;
+    const checks = MEMBERS.map(m => {
+      const v = td[m]||0;
+      const c = MEMBER_COLORS[m];
+      return `
+        <label class="flex items-center gap-1 cursor-pointer px-2 py-1 rounded-lg border text-xs font-bold border-slate-200 hover:border-slate-300 bg-white">
+          <input type="checkbox" class="member-cb w-3.5 h-3.5 accent-emerald-500" data-task="${t.id}" data-member="${m}" data-pts="${t.pts}">
+          <span style="color:${c}">${m}</span>
+          ${v>0?`<span class="ml-1 text-white text-xs font-black px-1.5 rounded-full" style="background:${c}">×${v}</span>`:''}
+        </label>`;
+    }).join('');
+    return `
+      <div class="p-3 rounded-xl border ${total>0?'bg-emerald-50 border-emerald-200':'bg-white border-slate-100'}" id="row_${t.id}">
+        <div class="flex items-center gap-2 mb-2 flex-wrap">
+          <span class="text-sm flex-1 font-semibold ${total>0?'text-emerald-700':'text-slate-700'}">${t.label}</span>
+          <span class="text-xs font-bold px-2 py-0.5 rounded-full border border-slate-200 text-slate-500">+${t.pts}pt${t.pts>1?'s':''} c/u</span>
+          ${total>0?`<span class="text-xs text-emerald-600 font-bold">${total} vez${total>1?'ces':''} ✓</span>`:''}
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          ${checks}
+          <button onclick="completeTask('${t.id}',${t.pts})"
+            class="ml-auto bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition">
+            Sumar ✓
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+  document.getElementById('kpiDone').textContent    = completed;
+  document.getElementById('kpiPending').textContent = DAILY_TASKS.length - completed;
+}
+
+function completeTask(taskId, pts) {
+  const done    = loadDoneToday();
+  if (!done[taskId]) done[taskId] = {};
+  const checked = [...document.querySelectorAll(`.member-cb[data-task="${taskId}"]:checked`)].map(cb=>cb.dataset.member);
+  if (!checked.length) {
+    const btn = document.querySelector(`#row_${taskId} button`);
+    btn.classList.add('bg-red-400'); btn.textContent='¡Selecciona alguien!';
+    setTimeout(()=>{btn.classList.remove('bg-red-400');btn.textContent='Sumar ✓';},1500);
+    return;
+  }
+  checked.forEach(m=>{ done[taskId][m]=(done[taskId][m]||0)+1; addPoints(m,pts); });
+  saveDoneToday(done); renderTaskList();
+}
+
+function resetDailyTasks() {
+  if (!confirm('¿Reiniciar tareas del día?')) return;
+  localStorage.removeItem(todayKey()); renderTaskList();
+}
+
+// --- Estadísticas ---
+function renderStatsTable() {
+  const done  = loadDoneToday();
+  document.getElementById('statsTable').innerHTML = MEMBERS.map(m => {
+    const color = MEMBER_COLORS[m];
+    let hoy = 0;
+    Object.values(done).forEach(td=>{ if(td[m]&&td[m]>0) hoy++; });
+    return `
+      <tr>
+        <td class="py-2 pr-4 font-bold">
+          <div class="flex items-center gap-2">
+            <span class="avatar text-xs" style="background:${color}">${m[0]}</span>${m}
+          </div>
+        </td>
+        <td class="py-2 pr-4 text-center text-slate-600">${DAILY_TASKS.length}</td>
+        <td class="py-2 pr-4 text-center text-slate-600">${hoy}</td>
+        <td class="py-2 pr-4 text-center font-extrabold" style="color:${color}">${points[m]||0}</td>
+      </tr>`;
+  }).join('');
+}
+
+// --- Pendientes del hogar ---
+function loadPending()  { return JSON.parse(localStorage.getItem('pendingTasks')||'[]'); }
+function savePending(a) { localStorage.setItem('pendingTasks', JSON.stringify(a)); }
+
+function renderPending() {
+  const tasks = loadPending();
+  document.getElementById('kpiHousePending').textContent = tasks.length;
+  const ul = document.getElementById('pendingList');
+  if (!tasks.length) {
+    ul.innerHTML = '<li class="text-slate-400 text-sm py-2">¡Sin pendientes! 🎉</li>';
+    return;
+  }
+  ul.innerHTML = tasks.map((t,i) => {
+    const color = MEMBER_COLORS[t.who]||'#94a3b8';
+    return `
+      <li class="flex items-center gap-2 group bg-orange-50 border border-orange-100 rounded-xl px-3 py-2">
+        <button onclick="completePending(${i})"
+          class="w-7 h-7 rounded-full border-2 border-orange-300 hover:bg-orange-400 hover:border-orange-400 flex-shrink-0 flex items-center justify-center text-xs text-orange-400 hover:text-white font-black transition"
+          title="Marcar como hecho">✓</button>
+        <div class="flex-1 min-w-0">
+          <span class="text-sm font-semibold text-slate-700">${t.text}</span>
+          ${t.created?`<span class="text-xs text-slate-400 ml-1">${t.created}</span>`:''}
+        </div>
+        <span class="text-xs font-bold px-2 py-0.5 rounded-full text-white flex-shrink-0" style="background:${color}">${t.who}</span>
+        <button onclick="deletePending(${i})" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition text-xl leading-none flex-shrink-0">×</button>
+      </li>`;
+  }).join('');
+}
+
+function addPendingTask() {
+  const txt = document.getElementById('newPending').value.trim();
+  const who = document.getElementById('pendingWho').value;
+  if (!txt) return;
+  const today = new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'});
+  const arr   = loadPending();
+  arr.push({text:txt, who, created:today});
+  savePending(arr);
+  document.getElementById('newPending').value='';
+  renderPending();
+}
+
+function completePending(i) { const a=loadPending(); a.splice(i,1); savePending(a); renderPending(); }
+function deletePending(i)   { const a=loadPending(); a.splice(i,1); savePending(a); renderPending(); }
+
+// --- Splitwise ---
+async function fetchSplitwise() {
+  const el = document.getElementById('swList');
+  el.innerHTML = '<div class="text-sm text-slate-400 flex items-center gap-2"><span class="spin">⏳</span> Cargando gastos...</div>';
+  try {
+    const data = await apiFetch(APPS_SCRIPT_URL + '?action=getExpenses');
+    if (data.error) throw new Error(data.error);
+    swGroupId = data.groupId;
+    renderSplitwise(data.expenses);
+  } catch(e) {
+    el.innerHTML = `<div class="text-sm text-red-400 p-3 bg-red-50 rounded-xl">⚠️ ${e.message || 'Error cargando Splitwise'}</div>`;
+  }
+}
+
+function renderSplitwise(expenses) {
+  const el = document.getElementById('swList');
+  if (!expenses||!expenses.length) {
+    el.innerHTML='<p class="text-slate-400 text-sm">Sin gastos recientes.</p>';
+    return;
+  }
+  document.getElementById('kpiSW').textContent = '€'+parseFloat(expenses[0].cost).toFixed(2);
+  el.innerHTML = expenses.map(exp => {
+    const coste = parseFloat(exp.cost).toFixed(2);
+    const mitad = (parseFloat(exp.cost)/2).toFixed(2);
+    const fecha = (exp.date||'').substring(0,10);
+    return `
+      <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white transition">
+        <div class="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-500 font-extrabold text-sm flex-shrink-0">€</div>
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-slate-700 text-sm truncate">${exp.description}</p>
+          <p class="text-xs text-slate-400">${fecha}${exp.created_by?' · '+exp.created_by:''}</p>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <p class="font-extrabold text-slate-700 text-sm">€${coste}</p>
+          <p class="text-xs text-slate-400">€${mitad}/persona</p>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function addSplitwiseExpense() {
+  const desc = document.getElementById('swDesc').value.trim();
+  const cost = parseFloat(document.getElementById('swCost').value);
+  const msg  = document.getElementById('swMsg');
+  const btn  = document.getElementById('swBtn');
+
+  const showMsg = (txt, ok) => {
+    msg.textContent = txt;
+    msg.className   = `text-xs mt-2 ${ok?'text-emerald-600':'text-red-500'}`;
+    msg.classList.remove('hidden');
+  };
+
+  if (!desc||!cost||cost<=0) { showMsg('⚠️ Escribe descripción e importe válido.',false); return; }
+  if (!swGroupId)             { showMsg('⚠️ Primero pulsa "Actualizar" para cargar el grupo.',false); return; }
+
+  btn.textContent='⏳ Enviando...'; btn.disabled=true; msg.classList.add('hidden');
+
+  try {
+    await fetch(APPS_SCRIPT_URL,{
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'addExpense', description:desc, cost, groupId:swGroupId})
+    });
+    document.getElementById('swDesc').value='';
+    document.getElementById('swCost').value='';
+    showMsg('✅ Gasto enviado. Actualizando lista...', true);
+    setTimeout(fetchSplitwise, 2500);
+  } catch(e) {
+    showMsg('⚠️ Error al enviar: '+e.message, false);
+  }
+  btn.textContent='Añadir'; btn.disabled=false;
+}
+
+// --- Lista de la compra ---
+function loadShopping()  { return JSON.parse(localStorage.getItem('shopping')||'[]'); }
+function saveShopping(a) { localStorage.setItem('shopping',JSON.stringify(a)); }
+
+function renderShopping() {
+  const items = loadShopping();
+  document.getElementById('shoppingList').innerHTML = items.length
+    ? items.map((item,i)=>`
+        <li class="flex items-center gap-2 group">
+          <input type="checkbox" id="si_${i}" ${item.done?'checked':''} onchange="toggleShop(${i})" class="accent-violet-500 w-4 h-4 cursor-pointer">
+          <label for="si_${i}" class="flex-1 text-sm cursor-pointer ${item.done?'line-through text-slate-400':'text-slate-700'}">${item.name}</label>
+          <button onclick="removeShop(${i})" class="text-slate-300 hover:text-red-400 text-lg leading-none opacity-0 group-hover:opacity-100 transition">×</button>
+        </li>`).join('')
+    : '<li class="text-slate-400 text-sm">Lista vacía 🛒</li>';
+  const done  = items.filter(i=>i.done).length;
+  const total = items.length;
+  document.getElementById('kpiSpent').textContent = done+(total?' / '+total:'');
+  document.getElementById('spendBar').style.width  = total?Math.round((done/total)*100)+'%':'0%';
+}
+
+function addShoppingItem() {
+  const inp=document.getElementById('newItem'); const val=inp.value.trim(); if(!val) return;
+  const a=loadShopping(); a.push({name:val,done:false}); saveShopping(a); inp.value=''; renderShopping();
+}
+function toggleShop(i) { const a=loadShopping(); a[i].done=!a[i].done; saveShopping(a); renderShopping(); }
+function removeShop(i)  { const a=loadShopping(); a.splice(i,1); saveShopping(a); renderShopping(); }
+
+// --- Tareas del hogar ---
+const DEFAULT_HOUSE=[
+  {text:'Sacar basura',done:false,who:'Javier'},
+  {text:'Regar plantas',done:false,who:'Licel'},
+  {text:'Pasar aspiradora',done:false,who:'Javier'},
+  {text:'Doblar la colada',done:false,who:'Licel'},
+];
+function loadHouse()  { return JSON.parse(localStorage.getItem('houseTasks')||JSON.stringify(DEFAULT_HOUSE)); }
+function saveHouse(a) { localStorage.setItem('houseTasks',JSON.stringify(a)); }
+
+function renderHouse() {
+  const tasks=loadHouse(); const ul=document.getElementById('houseTaskList');
+  if(!tasks.length){ul.innerHTML='<li class="text-slate-400 text-sm">Sin tareas 🧹</li>';return;}
+  ul.innerHTML=tasks.map((t,i)=>{
+    const color=MEMBER_COLORS[t.who]||'#94a3b8';
+    return `
+      <li class="flex items-center gap-2 group text-sm" id="ht_${i}">
+        <input type="checkbox" ${t.done?'checked':''} onchange="toggleHouse(${i})" class="accent-blue-500 w-4 h-4 cursor-pointer">
+        <span id="ht_txt_${i}" class="flex-1 ${t.done?'line-through text-slate-400':'text-slate-700'}">${t.text}</span>
+        <span class="text-xs px-2 py-0.5 rounded-full font-bold text-white" style="background:${color}">${t.who}</span>
+        <button onclick="editHouse(${i})" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-500 transition">✏️</button>
+        <button onclick="deleteHouse(${i})" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition">🗑️</button>
+      </li>`; }).join('');
+}
+
+function addHouseTask() {
+  const txt=document.getElementById('newHouseTask').value.trim();
+  const who=document.getElementById('newHouseAssignee').value;
+  if(!txt) return;
+  const a=loadHouse(); a.push({text:txt,done:false,who}); saveHouse(a);
+  document.getElementById('newHouseTask').value=''; renderHouse();
+}
+function toggleHouse(i) { const a=loadHouse(); a[i].done=!a[i].done; saveHouse(a); renderHouse(); }
+function deleteHouse(i)  { const a=loadHouse(); a.splice(i,1); saveHouse(a); renderHouse(); }
+function editHouse(i) {
+  const a=loadHouse(); const orig=a[i].text;
+  document.getElementById('ht_txt_'+i).innerHTML=`<input id="edit_${i}" value="${orig}" class="border border-blue-300 rounded px-2 py-0.5 text-sm w-full focus:outline-none">`;
+  const inp=document.getElementById('edit_'+i); inp.focus();
+  inp.addEventListener('blur',()=>{ a[i].text=inp.value.trim()||orig; saveHouse(a); renderHouse(); });
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter') inp.blur(); });
+}
+function clearHouseTasks() { if(!confirm('¿Borrar todas?')) return; saveHouse([]); renderHouse(); }
+
+// --- Gráfica ---
+function initChart() {
+  new Chart(document.getElementById('weekChart').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],
+      datasets:[
+        {label:'Completadas',data:[18,22,15,27,20,30,14],backgroundColor:'#34d399',borderRadius:6},
+        {label:'Pendientes', data:[16,12,19,7,14,4,20], backgroundColor:'#fca5a5',borderRadius:6},
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{position:'bottom',labels:{font:{family:'Nunito',size:11}}}},
+      scales:{
+        x:{stacked:true,grid:{display:false},ticks:{font:{family:'Nunito'}}},
+        y:{stacked:true,grid:{color:'#f1f5f9'},ticks:{font:{family:'Nunito'}}}
+      }
+    }
+  });
+}
+
+// --- Listeners teclado ---
+document.addEventListener('keydown', e => {
+  if (e.key==='Enter') {
+    if (document.activeElement.id==='newItem')      addShoppingItem();
+    if (document.activeElement.id==='newHouseTask') addHouseTask();
+    if (document.activeElement.id==='newPending')   addPendingTask();
+    if (document.activeElement.id==='swDesc'||document.activeElement.id==='swCost') addSplitwiseExpense();
+  }
+});
+
+// --- Init ---
+document.addEventListener('DOMContentLoaded', ()=>{
+  renderTaskList();
+  renderShopping();
+  renderHouse();
+  renderPending();
+  initChart();
+  fetchPoints();
+  fetchSplitwise();
+});
+</script>
+</body>
+</html>
