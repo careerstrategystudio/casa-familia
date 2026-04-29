@@ -264,9 +264,11 @@ function renderPointsBoard() {
 }
 
 function renderTaskList() {
+  const el = document.getElementById('taskList');
+  if (!el) return;
   const done = loadDoneToday();
   let completed = 0;
-  document.getElementById('taskList').innerHTML = DAILY_TASKS.map(t => {
+  el.innerHTML = DAILY_TASKS.map(t => {
     const td = done[t.id]||{};
     const total = Object.values(td).reduce((a,b)=>a+b,0);
     if (total>0) completed++;
